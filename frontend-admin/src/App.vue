@@ -7,6 +7,7 @@ import ScorePanel from '@/components/ScorePanel.vue'
 import ComboDisplay from '@/components/ComboDisplay.vue'
 import ToastMessage from '@/components/ToastMessage.vue'
 import GameOverModal from '@/components/GameOverModal.vue'
+import HistoryModal from '@/components/HistoryModal.vue'
 
 const gameStore = useGameStore()
 
@@ -48,6 +49,7 @@ onMounted(() => {
     <!-- 全局组件 -->
     <ToastMessage />
     <GameOverModal />
+    <HistoryModal />
   </div>
 </template>
 

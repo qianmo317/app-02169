@@ -53,6 +53,19 @@ export interface ToastMessage {
   duration: number
 }
 
+// 游戏历史记录接口
+export interface GameHistoryRecord {
+  id: string
+  score: number
+  maxCombo: number
+  date: string
+  isNewRecord: boolean
+}
+
+// 历史记录配置
+export const HISTORY_MAX_RECORDS = 10
+export const HISTORY_STORAGE_KEY = 'matchGame_history'
+
 // 默认游戏配置
 export const DEFAULT_CONFIG: GameConfig = {
   rows: 8,
