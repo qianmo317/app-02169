@@ -2,25 +2,31 @@
 import { computed, ref, watch } from 'vue'
 import { useGameStore } from '@/stores/gameStore'
 import { GameStatus } from '@/types/game'
+import HistoryPanel from '@/components/HistoryPanel.vue'
 
 const gameStore = useGameStore()
 
 const isVisible = computed(() => gameStore.status === GameStatus.GAME_OVER)
 const isNewRecord = computed(() => gameStore.score === gameStore.highScore && gameStore.score > 0)
 const isLoading = ref(false)
+const showHistory = ref(false)
 
 async function handleRestart() {
   isLoading.value = true
-  // 模拟短暂加载状态，提供交互反馈
   await new Promise(resolve => setTimeout(resolve, 300))
+  showHistory.value = false
   gameStore.startGame()
   isLoading.value = false
 }
 
-// 当模态框显示时，聚焦到按钮
+function toggleHistory() {
+  showHistory.value = !showHistory.value
+}
+
 const restartButton = ref<HTMLButtonElement | null>(null)
 watch(isVisible, (visible) => {
   if (visible) {
+    showHistory.value = false
     setTimeout(() => {
       restartButton.value?.focus()
     }, 100)
@@ -81,6 +87,17 @@ watch(isVisible, (visible) => {
           <!-- 底部 -->
           <footer class="modal-footer">
             <button
+              class="btn btn-secondary btn-large"
+              :class="{ 'is-active': showHistory }"
+              @click="toggleHistory"
+              type="button"
+            >
+              <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/>
+              </svg>
+              {{ showHistory ? '收起记录' : '历史战绩' }}
+            </button>
+            <button
               ref="restartButton"
               class="btn btn-primary btn-large"
               :class="{ 'is-loading': isLoading }"
@@ -95,6 +112,13 @@ watch(isVisible, (visible) => {
               {{ isLoading ? '加载中...' : '再来一局' }}
             </button>
           </footer>
+
+          <!-- 历史记录 -->
+          <Transition name="history">
+            <div v-if="showHistory" class="history-section">
+              <HistoryPanel />
+            </div>
+          </Transition>
         </div>
       </div>
     </Transition>
@@ -126,6 +150,8 @@ watch(isVisible, (visible) => {
   padding: var(--spacing-xl);
   max-width: 400px;
   width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
   box-shadow: var(--shadow-xl);
   border: 1px solid var(--border-color);
 }
@@ -267,6 +293,7 @@ watch(isVisible, (visible) => {
 .modal-footer {
   display: flex;
   justify-content: center;
+  gap: var(--spacing-sm);
 }
 
 /* ===================
@@ -318,6 +345,29 @@ watch(isVisible, (visible) => {
 .btn-primary:disabled {
   opacity: 0.7;
   cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+  border-color: var(--border-color-light);
+  transform: translateY(-2px);
+}
+
+.btn-secondary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-secondary.is-active {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
 }
 
 .btn-icon {
@@ -437,6 +487,46 @@ watch(isVisible, (visible) => {
   to {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+.history-section {
+  margin-top: var(--spacing-lg);
+  padding-top: var(--spacing-lg);
+  border-top: 1px solid var(--border-color);
+}
+
+.history-enter-active {
+  animation: history-in 0.3s ease-out;
+}
+
+.history-leave-active {
+  animation: history-out 0.2s ease-in;
+}
+
+@keyframes history-in {
+  from {
+    opacity: 0;
+    max-height: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    max-height: 500px;
+    transform: translateY(0);
+  }
+}
+
+@keyframes history-out {
+  from {
+    opacity: 1;
+    max-height: 500px;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    max-height: 0;
+    transform: translateY(-10px);
   }
 }
 

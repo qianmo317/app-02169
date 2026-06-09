@@ -7,6 +7,8 @@ import {
   GameConfig,
   ToastMessage,
   ToastType,
+  GameHistoryRecord,
+  MAX_HISTORY_RECORDS,
   DEFAULT_CONFIG
 } from '@/types/game'
 import {
@@ -27,12 +29,14 @@ export const useGameStore = defineStore('game', () => {
   const score = ref(0)
   const highScore = ref(0)
   const combo = ref(0)
+  const maxCombo = ref(0)
   const timeLeft = ref(DEFAULT_CONFIG.timeLimit)
   const status = ref<GameStatus>(GameStatus.IDLE)
   const selectedGem = ref<Position | null>(null)
   const isProcessing = ref(false)
   const toasts = ref<ToastMessage[]>([])
   const config = ref<GameConfig>(DEFAULT_CONFIG)
+  const historyRecords = ref<GameHistoryRecord[]>([])
 
   // 计算属性
   const isPlaying = computed(() => status.value === GameStatus.PLAYING)
@@ -46,15 +50,24 @@ export const useGameStore = defineStore('game', () => {
     board.value = initializeBoard(config.value)
     score.value = 0
     combo.value = 0
+    maxCombo.value = 0
     timeLeft.value = config.value.timeLimit
     status.value = GameStatus.IDLE
     selectedGem.value = null
     isProcessing.value = false
 
-    // 加载最高分
     const saved = localStorage.getItem('matchGame_highScore')
     if (saved) {
       highScore.value = parseInt(saved, 10)
+    }
+
+    const savedHistory = localStorage.getItem('matchGame_history')
+    if (savedHistory) {
+      try {
+        historyRecords.value = JSON.parse(savedHistory)
+      } catch {
+        historyRecords.value = []
+      }
     }
   }
 
@@ -89,13 +102,16 @@ export const useGameStore = defineStore('game', () => {
     status.value = GameStatus.GAME_OVER
     stopTimer()
 
-    if (score.value > highScore.value) {
+    const isRecord = score.value > highScore.value
+    if (isRecord) {
       highScore.value = score.value
       localStorage.setItem('matchGame_highScore', score.value.toString())
       showToast('success', '🎉 新纪录！')
     } else {
       showToast('info', '游戏结束')
     }
+
+    addHistoryRecord(isRecord)
   }
 
   // 开始计时器
@@ -186,6 +202,9 @@ export const useGameStore = defineStore('game', () => {
   // 处理匹配
   async function processMatches(matches: Position[][]) {
     combo.value++
+    if (combo.value > maxCombo.value) {
+      maxCombo.value = combo.value
+    }
 
     // 标记匹配的宝石
     board.value = markMatches(board.value, matches)
@@ -249,24 +268,44 @@ export const useGameStore = defineStore('game', () => {
     return new Promise(resolve => setTimeout(resolve, ms))
   }
 
+  function addHistoryRecord(isRecord: boolean) {
+    const record: GameHistoryRecord = {
+      id: generateId(),
+      score: score.value,
+      maxCombo: maxCombo.value,
+      isRecord,
+      date: new Date().toISOString()
+    }
+    historyRecords.value.unshift(record)
+    if (historyRecords.value.length > MAX_HISTORY_RECORDS) {
+      historyRecords.value = historyRecords.value.slice(0, MAX_HISTORY_RECORDS)
+    }
+    localStorage.setItem('matchGame_history', JSON.stringify(historyRecords.value))
+  }
+
+  function clearHistory() {
+    historyRecords.value = []
+    localStorage.removeItem('matchGame_history')
+    showToast('info', '历史记录已清空')
+  }
+
   return {
-    // 状态
     board,
     score,
     highScore,
     combo,
+    maxCombo,
     timeLeft,
     status,
     selectedGem,
     isProcessing,
     toasts,
     config,
+    historyRecords,
 
-    // 计算属性
     isPlaying,
     isGameOver,
 
-    // 方法
     initGame,
     startGame,
     pauseGame,
@@ -274,6 +313,7 @@ export const useGameStore = defineStore('game', () => {
     endGame,
     selectGem,
     showToast,
-    removeToast
+    removeToast,
+    clearHistory
   }
 })
