@@ -17,6 +17,11 @@ async function handleRestart() {
   isLoading.value = false
 }
 
+function handleViewHistory() {
+  gameStore.closeHistoryModal()
+  gameStore.openHistoryModal()
+}
+
 // 当模态框显示时，聚焦到按钮
 const restartButton = ref<HTMLButtonElement | null>(null)
 watch(isVisible, (visible) => {
@@ -80,20 +85,32 @@ watch(isVisible, (visible) => {
 
           <!-- 底部 -->
           <footer class="modal-footer">
-            <button
-              ref="restartButton"
-              class="btn btn-primary btn-large"
-              :class="{ 'is-loading': isLoading }"
-              :disabled="isLoading"
-              @click="handleRestart"
-              type="button"
-            >
-              <svg v-if="!isLoading" class="btn-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
-              </svg>
-              <span v-if="isLoading" class="btn-spinner" aria-hidden="true"></span>
-              {{ isLoading ? '加载中...' : '再来一局' }}
-            </button>
+            <div class="footer-buttons">
+              <button
+                class="btn btn-ghost"
+                @click="handleViewHistory"
+                type="button"
+              >
+                <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/>
+                </svg>
+                历史战绩
+              </button>
+              <button
+                ref="restartButton"
+                class="btn btn-primary"
+                :class="{ 'is-loading': isLoading }"
+                :disabled="isLoading"
+                @click="handleRestart"
+                type="button"
+              >
+                <svg v-if="!isLoading" class="btn-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+                </svg>
+                <span v-if="isLoading" class="btn-spinner" aria-hidden="true"></span>
+                {{ isLoading ? '加载中...' : '再来一局' }}
+              </button>
+            </div>
           </footer>
         </div>
       </div>
@@ -269,6 +286,18 @@ watch(isVisible, (visible) => {
   justify-content: center;
 }
 
+.footer-buttons {
+  display: flex;
+  gap: var(--spacing-md);
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.footer-buttons .btn {
+  flex: 1;
+  min-width: 120px;
+}
+
 /* ===================
  * 按钮样式
  * =================== */
@@ -295,9 +324,15 @@ watch(isVisible, (visible) => {
   outline-offset: 2px;
 }
 
-.btn-large {
-  padding: var(--spacing-md) var(--spacing-2xl);
-  font-size: var(--font-size-lg);
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: var(--bg-card);
+  color: var(--text-primary);
 }
 
 .btn-primary {
