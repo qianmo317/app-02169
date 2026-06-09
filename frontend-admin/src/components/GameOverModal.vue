@@ -8,19 +8,47 @@ const gameStore = useGameStore()
 const isVisible = computed(() => gameStore.status === GameStatus.GAME_OVER)
 const isNewRecord = computed(() => gameStore.score === gameStore.highScore && gameStore.score > 0)
 const isLoading = ref(false)
+const showHistory = ref(false)
 
 async function handleRestart() {
   isLoading.value = true
   // 模拟短暂加载状态，提供交互反馈
   await new Promise(resolve => setTimeout(resolve, 300))
+  showHistory.value = false
   gameStore.startGame()
   isLoading.value = false
+}
+
+function openHistory() {
+  showHistory.value = true
+}
+
+function closeHistory() {
+  showHistory.value = false
+}
+
+function handleClearHistory() {
+  if (gameStore.history.length === 0) return
+  if (window.confirm('确定要清空所有历史战绩吗？此操作不可恢复。')) {
+    gameStore.clearHistory()
+  }
+}
+
+function formatDate(timestamp: number): string {
+  const d = new Date(timestamp)
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mi = String(d.getMinutes()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd} ${hh}:${mi}`
 }
 
 // 当模态框显示时，聚焦到按钮
 const restartButton = ref<HTMLButtonElement | null>(null)
 watch(isVisible, (visible) => {
   if (visible) {
+    showHistory.value = false
     setTimeout(() => {
       restartButton.value?.focus()
     }, 100)
@@ -60,6 +88,11 @@ watch(isVisible, (visible) => {
               </div>
               <div class="score-divider" aria-hidden="true"></div>
               <div class="score-item">
+                <span class="score-label">最大连击</span>
+                <span class="score-value combo">{{ gameStore.maxCombo }}</span>
+              </div>
+              <div class="score-divider" aria-hidden="true"></div>
+              <div class="score-item">
                 <span class="score-label">最高纪录</span>
                 <span class="score-value best">{{ gameStore.highScore.toLocaleString() }}</span>
               </div>
@@ -76,6 +109,18 @@ watch(isVisible, (visible) => {
                 <p class="celebration-text">恭喜你打破了最高纪录！</p>
               </div>
             </Transition>
+
+            <!-- 历史战绩入口 -->
+            <button
+              class="history-entry"
+              type="button"
+              @click="openHistory"
+            >
+              <span class="history-entry-icon" aria-hidden="true">📜</span>
+              <span class="history-entry-text">查看历史战绩</span>
+              <span class="history-entry-count">{{ gameStore.history.length }} 局</span>
+              <span class="history-entry-arrow" aria-hidden="true">›</span>
+            </button>
           </div>
 
           <!-- 底部 -->
@@ -95,6 +140,76 @@ watch(isVisible, (visible) => {
               {{ isLoading ? '加载中...' : '再来一局' }}
             </button>
           </footer>
+
+          <!-- 历史战绩面板 -->
+          <Transition name="history-panel">
+            <div
+              v-if="showHistory"
+              class="history-panel"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="history-title"
+            >
+              <header class="history-header">
+                <h3 id="history-title" class="history-title">
+                  <span aria-hidden="true">📜</span>
+                  历史战绩
+                </h3>
+                <button
+                  class="history-close"
+                  type="button"
+                  aria-label="关闭"
+                  @click="closeHistory"
+                >×</button>
+              </header>
+
+              <div class="history-body">
+                <div v-if="gameStore.history.length === 0" class="history-empty">
+                  <span class="history-empty-icon" aria-hidden="true">📭</span>
+                  <p class="history-empty-text">暂无历史战绩</p>
+                </div>
+
+                <ul v-else class="history-list">
+                  <li
+                    v-for="(record, index) in gameStore.history"
+                    :key="record.id"
+                    class="history-item"
+                    :class="{ 'is-record': record.isRecord }"
+                  >
+                    <div class="history-rank">
+                      <span v-if="record.isRecord" class="history-trophy" aria-label="破纪录">🏆</span>
+                      <span v-else class="history-index">#{{ index + 1 }}</span>
+                    </div>
+                    <div class="history-info">
+                      <div class="history-row">
+                        <span class="history-score">{{ record.score.toLocaleString() }}</span>
+                        <span class="history-combo">最大连击 ×{{ record.maxCombo }}</span>
+                      </div>
+                      <div class="history-date">{{ formatDate(record.date) }}</div>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+
+              <footer class="history-footer">
+                <button
+                  class="btn btn-danger"
+                  type="button"
+                  :disabled="gameStore.history.length === 0"
+                  @click="handleClearHistory"
+                >
+                  一键清空
+                </button>
+                <button
+                  class="btn btn-secondary"
+                  type="button"
+                  @click="closeHistory"
+                >
+                  返回
+                </button>
+              </footer>
+            </div>
+          </Transition>
         </div>
       </div>
     </Transition>
@@ -128,6 +243,8 @@ watch(isVisible, (visible) => {
   width: 100%;
   box-shadow: var(--shadow-xl);
   border: 1px solid var(--border-color);
+  position: relative;
+  overflow: hidden;
 }
 
 /* ===================
@@ -179,7 +296,7 @@ watch(isVisible, (visible) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--spacing-lg);
+  gap: var(--spacing-md);
   padding: var(--spacing-lg);
   background: var(--bg-card);
   border-radius: var(--border-radius-lg);
@@ -204,13 +321,17 @@ watch(isVisible, (visible) => {
 }
 
 .score-value {
-  font-size: var(--font-size-2xl);
+  font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
   line-height: var(--line-height-tight);
 }
 
 .score-value.current {
   color: var(--color-primary-light);
+}
+
+.score-value.combo {
+  color: var(--color-success-light);
 }
 
 .score-value.best {
@@ -441,6 +562,291 @@ watch(isVisible, (visible) => {
 }
 
 /* ===================
+ * 历史战绩入口
+ * =================== */
+.history-entry {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  width: 100%;
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-md);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.history-entry:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--color-primary);
+  transform: translateY(-1px);
+}
+
+.history-entry:focus-visible {
+  outline: 2px solid var(--color-primary-light);
+  outline-offset: 2px;
+}
+
+.history-entry-icon {
+  font-size: var(--font-size-lg);
+}
+
+.history-entry-text {
+  flex: 1;
+  text-align: left;
+}
+
+.history-entry-count {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  background: var(--bg-primary);
+  padding: 2px var(--spacing-sm);
+  border-radius: var(--border-radius-full);
+}
+
+.history-entry-arrow {
+  color: var(--text-muted);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+}
+
+/* ===================
+ * 历史战绩面板
+ * =================== */
+.history-panel {
+  position: absolute;
+  inset: 0;
+  background: var(--bg-secondary);
+  display: flex;
+  flex-direction: column;
+  padding: var(--spacing-xl);
+  z-index: 1;
+}
+
+.history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-md);
+  padding-bottom: var(--spacing-md);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.history-title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.history-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  border-radius: var(--border-radius-full);
+  font-size: var(--font-size-xl);
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.history-close:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+}
+
+.history-body {
+  flex: 1;
+  overflow-y: auto;
+  margin-bottom: var(--spacing-md);
+  min-height: 200px;
+  max-height: 380px;
+}
+
+.history-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-2xl) 0;
+  color: var(--text-muted);
+}
+
+.history-empty-icon {
+  font-size: var(--font-size-3xl);
+  margin-bottom: var(--spacing-sm);
+}
+
+.history-empty-text {
+  font-size: var(--font-size-sm);
+  margin: 0;
+}
+
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-md);
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.history-item:hover {
+  background: var(--bg-card-hover);
+}
+
+.history-item.is-record {
+  background: linear-gradient(135deg, var(--color-warning-bg), rgba(252, 211, 77, 0.08));
+  border-color: var(--color-warning);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.25);
+}
+
+.history-rank {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.history-trophy {
+  font-size: var(--font-size-xl);
+  filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.6));
+  animation: trophy-shine 2s ease-in-out infinite;
+}
+
+.history-index {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-muted);
+}
+
+.history-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.history-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  margin-bottom: 2px;
+}
+
+.history-score {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+}
+
+.history-item.is-record .history-score {
+  color: var(--color-warning);
+}
+
+.history-combo {
+  font-size: var(--font-size-xs);
+  color: var(--color-success-light);
+  font-weight: var(--font-weight-medium);
+}
+
+.history-date {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
+.history-footer {
+  display: flex;
+  gap: var(--spacing-sm);
+  justify-content: space-between;
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--border-color);
+}
+
+.btn-secondary {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--bg-card-hover);
+  border-color: var(--color-primary);
+}
+
+.btn-danger {
+  background: var(--color-error-bg);
+  color: var(--color-error-light);
+  border: 1px solid var(--color-error);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: var(--color-error);
+  color: white;
+}
+
+.btn-danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@keyframes trophy-shine {
+  0%, 100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.6));
+  }
+  50% {
+    transform: scale(1.08);
+    filter: drop-shadow(0 0 12px rgba(245, 158, 11, 0.9));
+  }
+}
+
+/* 历史面板过渡 */
+.history-panel-enter-active,
+.history-panel-leave-active {
+  transition: transform var(--transition-normal), opacity var(--transition-normal);
+}
+
+.history-panel-enter-from {
+  opacity: 0;
+  transform: translateX(20px);
+}
+
+.history-panel-leave-to {
+  opacity: 0;
+  transform: translateX(20px);
+}
+
+/* ===================
  * 响应式
  * =================== */
 @media (max-width: 480px) {
@@ -459,11 +865,19 @@ watch(isVisible, (visible) => {
 
   .score-display {
     padding: var(--spacing-md);
-    gap: var(--spacing-md);
+    gap: var(--spacing-sm);
   }
 
   .score-value {
-    font-size: var(--font-size-xl);
+    font-size: var(--font-size-lg);
+  }
+
+  .history-panel {
+    padding: var(--spacing-lg);
+  }
+
+  .history-body {
+    max-height: 300px;
   }
 }
 </style>
