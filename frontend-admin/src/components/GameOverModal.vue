@@ -11,13 +11,15 @@ const isLoading = ref(false)
 
 async function handleRestart() {
   isLoading.value = true
-  // 模拟短暂加载状态，提供交互反馈
   await new Promise(resolve => setTimeout(resolve, 300))
   gameStore.startGame()
   isLoading.value = false
 }
 
-// 当模态框显示时，聚焦到按钮
+function handleOpenHistory() {
+  gameStore.openHistoryModal()
+}
+
 const restartButton = ref<HTMLButtonElement | null>(null)
 watch(isVisible, (visible) => {
   if (visible) {
@@ -65,6 +67,12 @@ watch(isVisible, (visible) => {
               </div>
             </div>
 
+            <!-- 最大连击 -->
+            <div class="combo-display" v-if="gameStore.maxCombo > 0">
+              <span class="combo-flame">🔥</span>
+              <span class="combo-text">最大连击 <strong>{{ gameStore.maxCombo }}</strong> 次</span>
+            </div>
+
             <!-- 新纪录庆祝 -->
             <Transition name="celebration">
               <div v-if="isNewRecord" class="celebration">
@@ -81,8 +89,18 @@ watch(isVisible, (visible) => {
           <!-- 底部 -->
           <footer class="modal-footer">
             <button
+              class="btn btn-secondary"
+              @click="handleOpenHistory"
+              type="button"
+            >
+              <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/>
+              </svg>
+              历史战绩
+            </button>
+            <button
               ref="restartButton"
-              class="btn btn-primary btn-large"
+              class="btn btn-primary"
               :class="{ 'is-loading': isLoading }"
               :disabled="isLoading"
               @click="handleRestart"
@@ -262,11 +280,49 @@ watch(isVisible, (visible) => {
 }
 
 /* ===================
+ * 最大连击展示
+ * =================== */
+.combo-display {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  background: var(--color-error-bg);
+  border-radius: var(--border-radius-md);
+  margin-bottom: var(--spacing-md);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.combo-flame {
+  font-size: var(--font-size-xl);
+  animation: flame-flicker 0.8s ease-in-out infinite alternate;
+}
+
+.combo-text {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-error-light);
+}
+
+.combo-text strong {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-error);
+}
+
+@keyframes flame-flicker {
+  from { transform: scale(1); }
+  to { transform: scale(1.15); }
+}
+
+/* ===================
  * 底部
  * =================== */
 .modal-footer {
   display: flex;
   justify-content: center;
+  gap: var(--spacing-md);
 }
 
 /* ===================
@@ -320,9 +376,26 @@ watch(isVisible, (visible) => {
   cursor: not-allowed;
 }
 
+.btn-secondary {
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-color-light);
+  transform: translateY(-2px);
+}
+
+.btn-secondary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
 .btn-icon {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
 }
 
 /* Loading 状态 */
@@ -464,6 +537,14 @@ watch(isVisible, (visible) => {
 
   .score-value {
     font-size: var(--font-size-xl);
+  }
+
+  .modal-footer {
+    flex-direction: column-reverse;
+  }
+
+  .btn {
+    width: 100%;
   }
 }
 </style>
